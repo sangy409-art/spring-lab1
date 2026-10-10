@@ -1,6 +1,7 @@
 package com.example.student.service;
 
 import com.example.student.model.User;
+import com.example.student.repository.BakingRequestRepository;
 import com.example.student.repository.UserRepository;
 import org.springframework.stereotype.Service;
 
@@ -9,9 +10,12 @@ import java.util.List;
 @Service
 public class UserService {
     private final UserRepository repository;
+    private final BakingRequestRepository requestRepository;
 
-    public UserService(UserRepository repository) {
+    public UserService(UserRepository repository,
+                       BakingRequestRepository requestRepository) {
         this.repository = repository;
+        this.requestRepository = requestRepository;
     }
 
     public List<User> getAll() { return repository.findAll(); }
@@ -34,7 +38,16 @@ public class UserService {
     }
 
     public void delete(Long id) {
-        if (!repository.existsById(id)) throw new RuntimeException("Пользователь не найден: " + id);
+        if (!repository.existsById(id)) {
+            throw new RuntimeException("Пользователь не найден: " + id);
+        }
+        // Проверяем, есть ли у пользователя заявки
+        boolean hasRequests = requestRepository.findAll().stream()
+                .anyMatch(r -> r.getUserId() != null && r.getUserId().equals(id));
+        if (hasRequests) {
+            throw new RuntimeException(
+                    "Нельзя удалить пользователя id=" + id + ": у него есть заявки на выпечку");
+        }
         repository.deleteById(id);
     }
 }

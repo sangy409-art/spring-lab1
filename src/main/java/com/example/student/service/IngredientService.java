@@ -2,6 +2,7 @@ package com.example.student.service;
 
 import com.example.student.model.Ingredient;
 import com.example.student.repository.IngredientRepository;
+import com.example.student.repository.RecipeRepository;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -9,14 +10,15 @@ import java.util.List;
 @Service
 public class IngredientService {
     private final IngredientRepository repository;
+    private final RecipeRepository recipeRepository;
 
-    public IngredientService(IngredientRepository repository) {
+    public IngredientService(IngredientRepository repository,
+                             RecipeRepository recipeRepository) {
         this.repository = repository;
+        this.recipeRepository = recipeRepository;
     }
 
-    public List<Ingredient> getAll() {
-        return repository.findAll();
-    }
+    public List<Ingredient> getAll() { return repository.findAll(); }
 
     public Ingredient getById(Long id) {
         return repository.findById(id)
@@ -39,6 +41,14 @@ public class IngredientService {
     public void delete(Long id) {
         if (!repository.existsById(id)) {
             throw new RuntimeException("Ингредиент не найден: " + id);
+        }
+        // Проверяем, не используется ли ингредиент в рецептурах
+        boolean usedInRecipe = recipeRepository.findAll().stream()
+                .flatMap(r -> r.getItems().stream())
+                .anyMatch(item -> item.getIngredientId().equals(id));
+        if (usedInRecipe) {
+            throw new RuntimeException(
+                    "Нельзя удалить ингредиент id=" + id + ": он используется в рецептурах");
         }
         repository.deleteById(id);
     }

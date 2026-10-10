@@ -1,6 +1,7 @@
 package com.example.student.service;
 
 import com.example.student.model.ProductionBatch;
+import com.example.student.repository.BakingRequestRepository;
 import com.example.student.repository.ProductionBatchRepository;
 import com.example.student.repository.RecipeRepository;
 import org.springframework.stereotype.Service;
@@ -11,11 +12,14 @@ import java.util.List;
 public class ProductionBatchService {
     private final ProductionBatchRepository repository;
     private final RecipeRepository recipeRepository;
+    private final BakingRequestRepository requestRepository;
 
     public ProductionBatchService(ProductionBatchRepository repository,
-                                  RecipeRepository recipeRepository) {
+                                  RecipeRepository recipeRepository,
+                                  BakingRequestRepository requestRepository) {
         this.repository = repository;
         this.recipeRepository = recipeRepository;
+        this.requestRepository = requestRepository;
     }
 
     public List<ProductionBatch> getAll() { return repository.findAll(); }
@@ -42,7 +46,16 @@ public class ProductionBatchService {
     }
 
     public void delete(Long id) {
-        if (!repository.existsById(id)) throw new RuntimeException("Партия не найдена: " + id);
+        if (!repository.existsById(id)) {
+            throw new RuntimeException("Партия не найдена: " + id);
+        }
+        // Проверяем, ссылается ли на партию какая-либо заявка
+        boolean usedInRequest = requestRepository.findAll().stream()
+                .anyMatch(r -> r.getBatchId() != null && r.getBatchId().equals(id));
+        if (usedInRequest) {
+            throw new RuntimeException(
+                    "Нельзя удалить партию id=" + id + ": на неё ссылаются заявки на выпечку");
+        }
         repository.deleteById(id);
     }
 }
